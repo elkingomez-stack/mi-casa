@@ -1,0 +1,11 @@
+{
+  "name": "Mi casa, poco a poco",
+  "short_name": "Mi casa",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF3EF",
+  "theme_color": "#F2B418",
+  "lang": "es",
+  "icons": [{"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}]
+}
