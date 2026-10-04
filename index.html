@@ -203,7 +203,22 @@ textarea{min-height:84px;resize:vertical;font-size:.85rem!important}
 .zbtns .ghost{background:rgba(0,0,0,.1);color:var(--sun-ink)}
 .ztimer .tmsg{grid-column:1 / -1;font-size:.92rem;font-weight:600}
 @media (max-width:420px){ .start{grid-template-columns:1fr} .dial{margin:0 auto} h1{font-size:1.8rem} .stat b{font-size:1.7rem} }
-@media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+.tag{font-weight:600;margin:2px 0 4px;max-width:30ch;line-height:1.3}
+/* ¿Cómo estás hoy? */
+.moods{grid-column:1 / -1;display:grid;gap:8px}
+.moods button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:16px;padding:12px 14px}
+.moods button b{font-weight:800;font-size:1.05rem}
+.moods button span{font-size:.88rem;color:var(--muted)}
+.animochip{margin:-14px 0 22px;font-size:.92rem;color:var(--muted)}
+.animochip b{color:var(--ink)}
+/* Compañía mientras trabajas */
+.comp{grid-column:1 / -1;display:flex;align-items:center;gap:8px;font-size:.88rem;font-weight:600;margin:0}
+.comp .dotp{width:10px;height:10px;border-radius:50%;background:currentColor;opacity:.35;flex:none}
+.comp .dotp.on{opacity:1;animation:lat 1.6s ease-in-out infinite}
+@keyframes lat{50%{transform:scale(1.5);opacity:.5}}
+.vozbtn{margin-left:auto;border:0;border-radius:999px;padding:5px 12px;background:rgba(0,0,0,.1);color:inherit;font-weight:700;font-size:.85rem;white-space:nowrap}
+.start.micro .vozbtn,.ztimer.rest .vozbtn{background:var(--surface)}
+@media (prefers-reduced-motion:reduce){ *{transition:none!important} .comp .dotp.on{animation:none} }
 </style>
 </head>
 <body>
@@ -211,6 +226,7 @@ textarea{min-height:84px;resize:vertical;font-size:.85rem!important}
   <div class="top">
     <div>
       <h1>Mi casa, poco a poco</h1>
+      <p class="tag">Para cuando sabes lo que hay que hacer, pero no arrancas.</p>
       <p class="muted" id="fecha"></p>
     </div>
     <div class="streak" aria-live="polite"><b id="racha">0</b><span id="rachaTxt">días seguidos</span></div>
@@ -248,7 +264,7 @@ function base(){return{
     0:{titulo:'Descanso',tareas:[]}
   },
   rescate:mk('r',['Sala','Cocina','Habitación','Baño','Zona de ropas','Patio o balcón']).map(z=>({...z,done:false})),
-  ajustes:{hora:'18:00',dias:'todos'},
+  ajustes:{hora:'18:00',dias:'todos',voz:false},
   apto:aptoBase(),
   visita:{hechas:[],ok:0},
   log:{}
@@ -357,6 +373,7 @@ function renderHoy(){
       ${dialHtml()}
       <div class="tctl"><button class="go" id="tGo"></button><button class="ghost" data-goto="apto">Ver la lista</button></div>
       <p class="tmsg" id="tMsg" aria-live="polite">${esc(msgs.visita)}</p>
+      ${compHtml()}
     </section>`;
   } else if(mode==='zona'){zt=state.apto.zonas.find(x=>x.id===zonaT);
     h+=`<section class="start" aria-label="Temporizador de la limpieza del apto">
@@ -364,11 +381,22 @@ function renderHoy(){
       ${dialHtml()}
       <div class="tctl"><button class="go" id="tGo"></button><button class="ghost" data-goto="apto">Ver tareas</button></div>
       <p class="tmsg" id="tMsg" aria-live="polite">${esc(msgs.zona)}</p>
+      ${compHtml()}
+    </section>`;
+  } else if(!l.animo&&mode==='normal'&&!timerActivo()&&next){
+    h+=`<section class="start micro" aria-label="Cómo estás hoy">
+      <div><small>Antes de empezar</small><p class="next">¿Cómo estás hoy?</p></div>
+      <div class="moods">
+        <button data-animo="bajo"><b>Sin energía</b><span>Arrancamos con solo 2 minutos</span></button>
+        <button data-animo="medio"><b>Más o menos</b><span>Bloques cortos de 10 minutos</span></button>
+        <button data-animo="alto"><b>Con ganas</b><span>Bloques de 20 minutos</span></button>
+      </div>
+      <p class="tmsg">No hay respuesta mala. La app se ajusta a ti, no al revés.</p>
     </section>`;
   } else if(mode==='micro'&&microDone){
     h+=`<section class="start micro won" aria-label="Dos minutos cumplidos">
       <div><small>Dos minutos cumplidos</small><p class="next">¡Lo hiciste! Empezar era lo difícil.</p></div>
-      <div class="tctl">${next?`<button class="go" id="mSeguir">Seguir 20 minutos</button>`:''}<button class="ghost" id="mBasta">Hasta aquí por hoy</button></div>
+      <div class="tctl">${next?`<button class="go" id="mSeguir">Seguir ${Math.round(durNormal()/60000)} minutos</button>`:''}<button class="ghost" id="mBasta">Hasta aquí por hoy</button></div>
       <p class="tmsg">${next?`Si te animas, sigue con: ${esc(next.t)}.`:'Cuenta como un paso. Mañana otro.'}</p>
     </section>`;
   } else if(mode==='micro'){
@@ -379,6 +407,7 @@ function renderHoy(){
       ${dialHtml()}
       <div class="tctl"><button class="go" id="tGo"></button><button class="ghost" id="tOtra">Otra</button></div>
       <p class="tmsg" id="tMsg" aria-live="polite">${esc(msgs.micro)}</p>
+      ${compHtml()}
       <button class="nomood" id="tVolver">Volver a mis tareas</button>
     </section>`;
   } else if(next){
@@ -387,17 +416,20 @@ function renderHoy(){
       ${dialHtml()}
       <div class="tctl"><button class="go" id="tGo"></button>${botonPausa()}</div>
       <p class="tmsg" id="tMsg" aria-live="polite">${esc(msgs.normal)}</p>
+      ${compHtml()}
       <button class="nomood" id="tMicro">No tengo ganas</button>
     </section>`;
   } else {
-    h+=`<div class="done-all">Hoy cumpliste con todo. Tu casa te lo agradece.</div>`;
+    h+=`<div class="done-all">Hoy cumpliste con todo. Le ganaste a la procrastinación.</div>`;
   }
+  if(l.animo&&!zt) h+=`<p class="animochip">Hoy: <b>${ANIMO[l.animo]||''}</b> <button class="link inl" id="animoCambiar">Cambiar</button></p>`;
   if(!zt&&state.apto.inicio&&!aptoCompleto()){const cz=zonaActual();
     if(cz) h+=`<p class="note apnote">Tienes la limpieza del apto a medias. Sigue con ${esc(cz.t)}. <button class="link inl" data-goto="apto">Ir a la limpieza</button></p>`}
   else if(!zt){const urg=necesidad().find(x=>x.r>=1);
     if(urg) h+=`<p class="note apnote">Le toca a ${esc(urg.z.t)}: ${urg.d===1?'la última vez fue ayer':`la última vez fue hace ${urg.d} días`}. <button class="link inl" data-goto="apto">Ver el apto</button></p>`}
   h+=`<section class="block"><h2>Lo mínimo de hoy</h2><ul class="list">${state.minimo.map(m=>item(m.id,m.t,(l.done||[]).includes(m.id))).join('')}</ul></section>`;
   h+=`<section class="block"><h2>${esc(DIAS[d.getDay()])}: ${esc(p.titulo||'Sin tarea grande')}</h2>`;
+  if(l.animo==='bajo'&&p.tareas.length) h+=`<p class="note" style="margin-bottom:10px">Con poca energía, lo mínimo basta. Lo de aquí abajo es ganancia, no obligación.</p>`;
   const big=[...p.tareas.map(t=>item(t.id,t.t,(l.done||[]).includes(t.id))),...(l.extra||[]).map(t=>item(t.id,t.t,(l.done||[]).includes(t.id),`data-delextra="${t.id}"`))];
   h+= big.length?`<ul class="list">${big.join('')}</ul>`:`<p class="note">Hoy solo lo mínimo. Descansar también cuenta.</p>`;
   h+=`<div class="add"><input id="extraIn" placeholder="Agregar algo solo para hoy" aria-label="Agregar algo solo para hoy"><button id="extraBtn">Agregar</button></div></section>`;
@@ -489,6 +521,7 @@ function renderProgreso(){
     <li><span>Días que cumpliste lo mínimo</span><b>${diasOk}</b></li>
     <li><span>Tiempo con el temporizador</span><b>${fmtMin(ms)}</b></li>
     <li><span>Veces que venciste el «no tengo ganas»</span><b>${micro}</b></li>
+    <li><span>Días que arrancaste sin energía</span><b>${sinEnergia()}</b></li>
     <li><span>Limpiezas completas del apto</span><b>${state.apto.historial.length}</b></li>
     <li><span>Zonas rescatadas ahora</span><b>${zonas} de ${state.rescate.length}</b></li></ul></section>
   ${renderLogros(tot,micro,ms)}
@@ -565,6 +598,7 @@ function renderVisita(){
     ${dialHtml()}
     <div class="tctl"><button class="go" id="tGo"></button><button class="ghost" id="vFin">${visitaFin?'Cerrar':'Terminar'}</button></div>
     <p class="tmsg" id="tMsg" aria-live="polite">${esc(msgs.visita)}</p>
+    ${compHtml()}
     <ul class="list vlist">${VISITA.map((t,i)=>item('vi_'+i,t,V.hechas.includes(i))).join('')}</ul>
   </section>`}
 function zonaTimerHtml(z){
@@ -572,15 +606,17 @@ function zonaTimerHtml(z){
     <p class="tmsg" id="tMsg" aria-live="polite">${esc(msgs.descanso)}</p></div>`;
   if(mode==='visita') return `<p class="note" style="margin-bottom:12px">Estás en el arreglo rápido para visitas (<b id="tiempo"></b>). Cuando lo termines, aquí vuelve el temporizador de esta zona.</p>`;
   if(mode==='zona'&&zonaT===z.id) return `<div class="ztimer">${dialHtml(true)}<div class="zbtns"><button class="go" id="tGo"></button>${botonPausa()}</div>
-    <p class="tmsg" id="tMsg" aria-live="polite">${esc(msgs.zona)}</p></div>`;
+    <p class="tmsg" id="tMsg" aria-live="polite">${esc(msgs.zona)}</p>${compHtml()}</div>`;
   const otra=mode==='zona'?(state.apto.zonas.find(x=>x.id===zonaT)||{}).t:null;
   return `<p class="note" style="margin-bottom:12px">${otra?`El temporizador sigue corriendo para ${esc(otra)}`:'Tienes el temporizador de Hoy corriendo'} (<b id="tiempo"></b>). Cuando termine, aquí aparece el de esta zona.</p>`;
 }
+function sinEnergia(){return Object.values(state.log).filter(l=>l&&l.animo==='bajo'&&((l.done||[]).length||l.micro)).length}
 function renderLogros(tot,micro,ms){
   const best=mejorRacha(), limp=state.apto.historial.length, vis=state.visita.ok||0, h1=36e5;
   const L=[
     ['Primer paso','Marcaste tu primera tarea',tot>=1,''],
     ['Sin ganas, pero lo hice','Venciste el «no tengo ganas»',micro>=1,''],
+    ['Sin energía, pero arranqué','Hiciste algo un día de poca energía',sinEnergia()>=1,''],
     ['Tres días seguidos','Cumpliste lo mínimo 3 días',best>=3,`${Math.min(best,3)} de 3`],
     ['Una semana seguida','Cumpliste lo mínimo 7 días',best>=7,`${Math.min(best,7)} de 7`],
     ['Un mes seguido','Cumpliste lo mínimo 30 días',best>=30,`${Math.min(best,30)} de 30`],
@@ -625,13 +661,38 @@ const DEF={normal:MSG_N,micro:MSG_M,zona:MSG_Z,descanso:MSG_D,visita:MSG_V};
 const DUR_D=10*60*1000, DUR_V=15*60*1000;
 let mode='normal', microI=0, microDone=false, zonaT=null, ofrecerDesc=false, descFrom='normal', visitaOn=false, visitaFin=false;
 const msgs={...DEF};
-let tEnd=null, tLeft=DUR_N, tInt=null, segStart=null, actx=null;
+let tEnd=null, tLeft=0, tInt=null, segStart=null, actx=null;
+if(animoHoy()==='bajo') mode='micro';
+tLeft=dur();
 function dur(){
   if(mode==='micro') return DUR_M;
   if(mode==='descanso') return DUR_D;
   if(mode==='visita') return DUR_V;
   if(mode==='zona'){const z=state.apto.zonas.find(x=>x.id===zonaT); return (z?z.min:20)*60000}
-  return DUR_N}
+  return durNormal()}
+/* ¿Cómo estás hoy?: ajusta cuánto te pide la app */
+const ANIMO={bajo:'Sin energía',medio:'Más o menos',alto:'Con ganas'};
+function animoHoy(){return peek(key(hoy())).animo}
+function durNormal(){return animoHoy()==='medio'?10*60000:DUR_N}
+/* Compañía mientras trabajas: mensajes que cambian y voz opcional */
+const COMP={
+  normal:['Sigo aquí contigo.','Ya arrancaste, que era lo más difícil.','Una cosa a la vez. Lo estás haciendo.','No tiene que quedar perfecto, tiene que quedar hecho.','Si te distrajiste, vuelve sin regañarte.','Respira. Vas a tu ritmo.','Cada minuto cuenta, aunque todavía no se note.','Tu yo de mañana te lo va a agradecer.'],
+  micro:['Sigo aquí. Solo un poquito.','Lo que hagas ya cuenta.','Si quieres parar al final, paras. Sin culpa.'],
+  visita:['Lo que más se nota, primero.','Vas rápido y vas bien.','Nadie va a revisar los rincones.']};
+COMP.zona=COMP.normal;
+let compI=0, compAt=0, halfSaid=false, lastSaid=false;
+const hayVoz=()=>'speechSynthesis' in window;
+function hablar(t){
+  if(!state.ajustes.voz||!hayVoz()) return;
+  try{speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t), vs=speechSynthesis.getVoices();
+    const v=vs.find(x=>/^es[-_](CO|419|MX|US)/i.test(x.lang))||vs.find(x=>/^es/i.test(x.lang));
+    u.lang=v?v.lang:'es-ES'; if(v) u.voice=v; speechSynthesis.speak(u)}catch(e){}}
+function decir(t){setMsg(t); hablar(t)}
+function compHtml(){
+  return `<p class="comp"><span class="dotp${tEnd?' on':''}" aria-hidden="true"></span><span class="comptxt">${tEnd?'Te acompaño mientras trabajas':'Te acompaño cuando empieces'}</span>${hayVoz()?`<button class="vozbtn" id="vozBtn" aria-pressed="${state.ajustes.voz?'true':'false'}">Voz: ${state.ajustes.voz?'sí':'no'}</button>`:''}</p>`}
+function paintComp(){
+  document.querySelectorAll('.comp .dotp').forEach(x=>x.classList.toggle('on',!!tEnd));
+  document.querySelectorAll('.comp .comptxt').forEach(x=>x.textContent=tEnd?'Te acompaño mientras trabajas':'Te acompaño cuando empieces')}
 function timerActivo(){return !!tEnd||(tLeft>0&&tLeft<dur())}
 function fmt(ms){const s=Math.max(0,Math.ceil(ms/1000)); return p2(Math.floor(s/60))+':'+p2(s%60)}
 function addFocus(ms){if(!(ms>0)||mode==='descanso') return; const l=dayLog(key(hoy())); l.ms=(l.ms||0)+Math.min(ms,dur()); save()}
@@ -644,6 +705,7 @@ function paintTimer(){
   tEl.textContent=fmt(left);
   if(p) p.style.strokeDashoffset=339.29*(Math.max(0,left)/total);
   if(go) go.textContent=tEnd?'Pausar':(tLeft<total&&tLeft>0?'Seguir':`Empezar ${Math.round(total/60000)} minutos`);
+  paintComp();
 }
 function beep(){try{if(!actx) return; [0,0.35,0.7].forEach(t=>{const o=actx.createOscillator(),g=actx.createGain(); o.frequency.value=880; o.connect(g); g.connect(actx.destination); g.gain.setValueAtTime(.2,actx.currentTime+t); g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+t+.3); o.start(actx.currentTime+t); o.stop(actx.currentTime+t+.3)})}catch(e){}}
 function tick(){
@@ -652,19 +714,24 @@ function tick(){
   if(left<=0){
     addFocus(tEnd-segStart); clearInterval(tInt); tInt=null; tEnd=null; segStart=null; tLeft=dur(); beep();
     if(navigator.vibrate) navigator.vibrate([200,100,200]);
-    if(mode==='micro'){const l=dayLog(key(hoy())); l.micro=(l.micro||0)+1; save(); microDone=true; return render()}
-    if(mode==='descanso'){mode=descFrom; tLeft=dur(); msgs[mode]='Se acabó el descanso. Cuando quieras, seguimos.'; return render()}
-    if(mode==='visita'){msgs.visita='Se acabó el tiempo. Lo que alcanzaste ya se nota.'; return render()}
+    if(mode==='micro'){const l=dayLog(key(hoy())); l.micro=(l.micro||0)+1; save(); microDone=true; hablar('¡Dos minutos! Lo lograste. Empezar era lo difícil.'); return render()}
+    if(mode==='descanso'){mode=descFrom; tLeft=dur(); msgs[mode]='Se acabó el descanso. Cuando quieras, seguimos.'; hablar(msgs[mode]); return render()}
+    if(mode==='visita'){msgs.visita='Se acabó el tiempo. Lo que alcanzaste ya se nota.'; hablar(msgs.visita); return render()}
     if(mode==='zona'){const z=state.apto.zonas.find(x=>x.id===zonaT); msgs.zona=`Se acabó el tiempo de ${z?z.t:'esta zona'}. Descansa o termina con calma.`}
-    else msgs.normal='¡Listo, 20 minutos! Ahora te ganaste un descanso.';
-    ofrecerDesc=true; return render();
+    else msgs.normal=`¡Listo, ${Math.round(dur()/60000)} minutos! Ahora te ganaste un descanso.`;
+    hablar(msgs[mode]); ofrecerDesc=true; return render();
   }
+  if(mode!=='descanso'){const total=dur();
+    if(!halfSaid&&total>=4*60000&&left<=total/2){halfSaid=true; compAt=Date.now(); decir('Vas por la mitad. Sigue así.')}
+    else if(!lastSaid&&total>=3*60000&&left<=60000){lastSaid=true; compAt=Date.now(); decir('Último minuto. Ya casi terminas.')}
+    else if(Date.now()-compAt>=90000&&left>70000){compAt=Date.now(); const pool=COMP[mode]||COMP.normal; decir(pool[compI++%pool.length])}}
   paintTimer()}
 function toggleTimer(){
   try{actx=actx||new (window.AudioContext||window.webkitAudioContext)()}catch(e){}
   if(tEnd) stopRun();
-  else{tEnd=Date.now()+tLeft; segStart=Date.now(); tInt=setInterval(tick,500); ofrecerDesc=false;
-    setMsg({micro:'Solo dos minutos. Puedes con esto.',zona:'Vas bien. Solo esta zona, nada más.',descanso:'Descansando. Nada de tareas ahora.',visita:'Rápido y sin perfección. Tú puedes.'}[mode]||'Vas bien. Solo esta tarea, nada más.')}
+  else{if(tLeft>=dur()){halfSaid=false; lastSaid=false}
+    tEnd=Date.now()+tLeft; segStart=Date.now(); compAt=Date.now(); tInt=setInterval(tick,500); ofrecerDesc=false;
+    decir({micro:'Solo dos minutos. Puedes con esto.',zona:'Vas bien. Solo esta zona, nada más.',descanso:'Descansando. Nada de tareas ahora.',visita:'Rápido y sin perfección. Tú puedes.'}[mode]||'Vas bien. Solo esta tarea, nada más.')}
   paintTimer()}
 function setMode(m){stopRun(); mode=m; microDone=false; ofrecerDesc=false; tLeft=dur(); msgs[m]=DEF[m]}
 function botonPausa(){return ofrecerDesc?'<button class="ghost" id="tDesc">Descansar 10 min</button>':'<button class="ghost" id="tReset">Reiniciar</button>'}
@@ -715,6 +782,13 @@ function marcarApto(tid,on){
 function addFrom(input,fn){const v=(input.value||'').trim(); if(!v) return; fn(v); save(); render()}
 V.addEventListener('click',async e=>{
   const el=e.target;
+  const ab=el.closest('[data-animo]');
+  if(ab){const v=ab.dataset.animo; dayLog(key(hoy())).animo=v; save(); setMode(v==='bajo'?'micro':'normal'); microI=0; return render()}
+  if(el.id==='animoCambiar'){const l=dayLog(key(hoy())); delete l.animo; save(); setMode('normal'); return render()}
+  if(el.id==='vozBtn'){state.ajustes.voz=!state.ajustes.voz; save();
+    el.setAttribute('aria-pressed',state.ajustes.voz?'true':'false'); el.textContent='Voz: '+(state.ajustes.voz?'sí':'no');
+    if(state.ajustes.voz) hablar('Listo. Te acompaño con voz.'); else if(hayVoz()) speechSynthesis.cancel();
+    return}
   if(el.id==='tGo') return toggleTimer();
   if(el.id==='tReset'){stopRun(); tLeft=dur(); setMsg(DEF[mode]); return paintTimer()}
   if(el.id==='tDesc'){descFrom=mode==='zona'?'zona':'normal'; setMode('descanso'); toggleTimer(); return render()}

@@ -7,5 +7,6 @@
   "background_color": "#EEF3EF",
   "theme_color": "#F2B418",
   "lang": "es",
+  "description": "Para cuando sabes lo que hay que hacer, pero no arrancas.",
   "icons": [{"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}]
 }
