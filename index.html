@@ -676,11 +676,15 @@ function animoHoy(){return peek(key(hoy())).animo}
 function durNormal(){return animoHoy()==='medio'?10*60000:DUR_N}
 /* Compañía mientras trabajas: mensajes que cambian y voz opcional */
 const COMP={
-  normal:['Sigo aquí contigo.','Ya arrancaste, que era lo más difícil.','Una cosa a la vez. Lo estás haciendo.','No tiene que quedar perfecto, tiene que quedar hecho.','Si te distrajiste, vuelve sin regañarte.','Respira. Vas a tu ritmo.','Cada minuto cuenta, aunque todavía no se note.','Tu yo de mañana te lo va a agradecer.'],
-  micro:['Sigo aquí. Solo un poquito.','Lo que hagas ya cuenta.','Si quieres parar al final, paras. Sin culpa.'],
-  visita:['Lo que más se nota, primero.','Vas rápido y vas bien.','Nadie va a revisar los rincones.']};
+  normal:['Sigo aquí contigo.','Ya arrancaste, y eso era lo más difícil.','Una cosa a la vez. Lo estás haciendo.','No tiene que quedar perfecto, tiene que quedar hecho.','Si te distrajiste, vuelve sin regañarte.','Respira hondo. Vas a tu ritmo.','Cada minuto cuenta, aunque todavía no se note.','Tu yo de mañana te lo va a agradecer.','Mira lo que ya avanzaste. Eso no estaba hecho hace un rato.','No pienses en todo lo que falta. Solo en lo que tienes en las manos.','Vas mejor de lo que crees.','Un poquito más y lo tachas de la lista.','Si te cansaste, baja el ritmo, pero no pares.','Pon una canción que te guste y sigue.','Esto que estás haciendo es cuidarte a ti misma.','Hecho es mejor que perfecto.','Lo estás logrando, de verdad.','Cuando suene, te ganaste un descanso.'],
+  micro:['Sigo aquí. Solo un poquito.','Lo que hagas ya cuenta.','Si quieres parar al final, paras. Sin culpa.','Ya empezaste. Eso es lo que importa hoy.','Una cosita pequeña, nada más.','Mira, ya estás en movimiento.','Dos minutos se pasan volando.'],
+  visita:['Lo que más se nota, primero.','Vas rápido y vas bien.','Nadie va a revisar los rincones.','Lo que no se ve, puede esperar.','Puertas cerradas y listo. Nadie entra a los cuartos.','Una superficie despejada ya cambia todo.','Vas a recibir con calma, ya verás.'],
+  descanso:['Este rato es tuyo. Nada de tareas.','Toma agua, que lo necesitas.','Estira la espalda y los brazos.','Siéntate un momento. Te lo ganaste.','Descansar también es parte del plan.','Respira despacio. No hay afán.','Mira lo que ya hiciste. Está bien sentirse orgullosa.']};
 COMP.zona=COMP.normal;
-let compI=0, compAt=0, halfSaid=false, lastSaid=false;
+const COMP_CADA=45000;
+function fraseComp(){const pool=COMP[mode]||COMP.normal; if(pool.length<2) return pool[0];
+  let i; do{i=Math.floor(Math.random()*pool.length)}while(i===compI); compI=i; return pool[i]}
+let compI=-1, compAt=0, halfSaid=false, lastSaid=false;
 const hayVoz=()=>'speechSynthesis' in window;
 function hablar(t){
   if(!state.ajustes.voz||!hayVoz()) return;
@@ -737,7 +741,7 @@ function tick(){
   if(mode!=='descanso'){const total=dur();
     if(!halfSaid&&total>=4*60000&&left<=total/2){halfSaid=true; compAt=Date.now(); decir('Vas por la mitad. Sigue así.')}
     else if(!lastSaid&&total>=3*60000&&left<=60000){lastSaid=true; compAt=Date.now(); decir('Último minuto. Ya casi terminas.')}
-    else if(Date.now()-compAt>=90000&&left>70000){compAt=Date.now(); const pool=COMP[mode]||COMP.normal; decir(pool[compI++%pool.length])}}
+    else if(Date.now()-compAt>=COMP_CADA&&left>65000){compAt=Date.now(); decir(fraseComp())}}
   paintTimer()}
 function toggleTimer(){
   try{actx=actx||new (window.AudioContext||window.webkitAudioContext)()}catch(e){}
