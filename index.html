@@ -696,7 +696,20 @@ function paintComp(){
 function timerActivo(){return !!tEnd||(tLeft>0&&tLeft<dur())}
 function fmt(ms){const s=Math.max(0,Math.ceil(ms/1000)); return p2(Math.floor(s/60))+':'+p2(s%60)}
 function addFocus(ms){if(!(ms>0)||mode==='descanso') return; const l=dayLog(key(hoy())); l.ms=(l.ms||0)+Math.min(ms,dur()); save()}
-function stopRun(){if(!tEnd) return; addFocus(Date.now()-segStart); tLeft=Math.max(0,tEnd-Date.now()); tEnd=null; segStart=null; clearInterval(tInt); tInt=null}
+/* Pantalla encendida mientras corre el temporizador */
+let wl=null, wlAvisado=false;
+async function pantallaOn(){
+  if(wl) return;
+  try{
+    if(!('wakeLock' in navigator)) throw new Error('no');
+    wl=await navigator.wakeLock.request('screen');
+    wl.addEventListener('release',()=>{wl=null});
+    if(!tEnd) pantallaOff();
+  }catch(e){
+    if(!wlAvisado&&tEnd){wlAvisado=true; setMsg('Ojo: este celular no deja mantener la pantalla encendida. Sube el tiempo de pantalla en Ajustes.')}
+  }}
+function pantallaOff(){if(wl){try{wl.release()}catch(e){} wl=null}}
+function stopRun(){if(!tEnd) return; addFocus(Date.now()-segStart); tLeft=Math.max(0,tEnd-Date.now()); tEnd=null; segStart=null; clearInterval(tInt); tInt=null; pantallaOff()}
 function setMsg(t){const m=document.getElementById('tMsg'); if(m) m.textContent=t; msgs[mode]=t}
 function paintTimer(){
   const total=dur(), left=tEnd?tEnd-Date.now():tLeft;
@@ -712,7 +725,7 @@ function tick(){
   if(!tEnd) return;
   const left=tEnd-Date.now();
   if(left<=0){
-    addFocus(tEnd-segStart); clearInterval(tInt); tInt=null; tEnd=null; segStart=null; tLeft=dur(); beep();
+    addFocus(tEnd-segStart); clearInterval(tInt); tInt=null; tEnd=null; segStart=null; tLeft=dur(); beep(); pantallaOff();
     if(navigator.vibrate) navigator.vibrate([200,100,200]);
     if(mode==='micro'){const l=dayLog(key(hoy())); l.micro=(l.micro||0)+1; save(); microDone=true; hablar('¡Dos minutos! Lo lograste. Empezar era lo difícil.'); return render()}
     if(mode==='descanso'){mode=descFrom; tLeft=dur(); msgs[mode]='Se acabó el descanso. Cuando quieras, seguimos.'; hablar(msgs[mode]); return render()}
@@ -731,7 +744,7 @@ function toggleTimer(){
   if(tEnd) stopRun();
   else{if(tLeft>=dur()){halfSaid=false; lastSaid=false}
     tEnd=Date.now()+tLeft; segStart=Date.now(); compAt=Date.now(); tInt=setInterval(tick,500); ofrecerDesc=false;
-    decir({micro:'Solo dos minutos. Puedes con esto.',zona:'Vas bien. Solo esta zona, nada más.',descanso:'Descansando. Nada de tareas ahora.',visita:'Rápido y sin perfección. Tú puedes.'}[mode]||'Vas bien. Solo esta tarea, nada más.')}
+    decir({micro:'Solo dos minutos. Puedes con esto.',zona:'Vas bien. Solo esta zona, nada más.',descanso:'Descansando. Nada de tareas ahora.',visita:'Rápido y sin perfección. Tú puedes.'}[mode]||'Vas bien. Solo esta tarea, nada más.'); pantallaOn()}
   paintTimer()}
 function setMode(m){stopRun(); mode=m; microDone=false; ofrecerDesc=false; tLeft=dur(); msgs[m]=DEF[m]}
 function botonPausa(){return ofrecerDesc?'<button class="ghost" id="tDesc">Descansar 10 min</button>':'<button class="ghost" id="tReset">Reiniciar</button>'}
@@ -834,7 +847,7 @@ V.addEventListener('click',async e=>{
 V.addEventListener('keydown',e=>{if(e.key!=='Enter'||e.target.tagName!=='INPUT') return;
   const btn=e.target.closest('.add')?.querySelector('button'); if(btn){e.preventDefault(); btn.click()}
   else if(e.target.dataset.title!==undefined||e.target.dataset.aptitle!==undefined||e.target.dataset.aptmin!==undefined) e.target.blur()});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){ if(tEnd) tick(); renderHeader(); }});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){ if(tEnd){tick(); if(tEnd) pantallaOn()} renderHeader(); }});
 
 render();
 
